@@ -1,8 +1,9 @@
 # DCYFR Community Plugin Marketplace
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/dcyfr-labs/dcyfr-community-plugins)
+
 [![Security Scan](https://github.com/dcyfr-labs/dcyfr-community-plugins/actions/workflows/community-plugin-scan.yml/badge.svg)](https://github.com/dcyfr-labs/dcyfr-community-plugins/actions/workflows/community-plugin-scan.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/dcyfr/dcyfr-community-plugins)
 [![Sponsor](https://img.shields.io/badge/sponsor-30363D?style=flat-square&logo=GitHub-Sponsors&logoColor=#EA4AAA)](https://github.com/sponsors/dcyfr)
 
 > **⚠️ UNAUDITED BY DCYFR SECURITY TEAM**
