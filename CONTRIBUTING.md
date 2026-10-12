@@ -64,7 +64,7 @@ Minimum `overall` score to pass auto-merge: **70**.
 ### 4. sbom.json (CycloneDX 1.4)
 
 Generate with `cyclonedx-node-npm` or use the example template in
-[dcyfr/dcyfr-plugins](https://github.com/dcyfr/dcyfr-plugins).
+[dcyfr-labs/dcyfr-plugins](https://github.com/dcyfr-labs/dcyfr-plugins).
 
 ## Verified Publisher Criteria
 
@@ -90,7 +90,7 @@ PRs are **held for human review** when:
 
 Plugins with **trust score ≥ 90** and **100+ downloads** are automatically nominated
 for DCYFR security audit. If the audit passes, the plugin may be promoted to
-[dcyfr/dcyfr-plugins](https://github.com/dcyfr/dcyfr-plugins).
+[dcyfr-labs/dcyfr-plugins](https://github.com/dcyfr-labs/dcyfr-plugins).
 
 ## Code of Conduct
 
