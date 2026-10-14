@@ -8,7 +8,7 @@
 
 > **⚠️ UNAUDITED BY DCYFR SECURITY TEAM**
 > Community plugins are automatically scanned but have **not** been manually reviewed
-> by the DCYFR security team. Use at your own risk. For audited plugins, see
+> by the DCYFR Labs security team. Use at your own risk. For audited plugins, see
 > [dcyfr-labs/dcyfr-plugins](https://github.com/dcyfr-labs/dcyfr-plugins).
 
 Community-contributed plugins for the DCYFR AI framework. All submissions are

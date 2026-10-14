@@ -2,7 +2,7 @@
 
 > **⚠️ UNAUDITED DISCLAIMER**
 > Community plugins pass automated scans but are **not** manually reviewed by the
-> DCYFR security team. Authors are responsible for their plugin's security.
+> DCYFR Labs security team. Authors are responsible for their plugin's security.
 
 ## Submission Requirements
 
