@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Sponsor](https://img.shields.io/badge/sponsor-30363D?style=flat-square&logo=GitHub-Sponsors&logoColor=#EA4AAA)](https://github.com/sponsors/dcyfr)
 
-> **⚠️ UNAUDITED BY DCYFR SECURITY TEAM**
+> **⚠️ UNAUDITED BY THE DCYFR LABS SECURITY TEAM**
 > Community plugins are automatically scanned but have **not** been manually reviewed
 > by the DCYFR Labs security team. Use at your own risk. For audited plugins, see
 > [dcyfr-labs/dcyfr-plugins](https://github.com/dcyfr-labs/dcyfr-plugins).
