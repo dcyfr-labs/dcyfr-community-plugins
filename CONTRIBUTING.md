@@ -94,5 +94,5 @@ for DCYFR security audit. If the audit passes, the plugin may be promoted to
 
 ## Code of Conduct
 
-By submitting a plugin, you agree to the [DCYFR Code of Conduct](https://dcyfr.ai/conduct).
+By submitting a plugin, you agree to the [DCYFR Labs Code of Conduct](https://github.com/dcyfr-labs/.github/blob/main/CODE_OF_CONDUCT.md).
 Malicious plugins will be removed and the author banned.
