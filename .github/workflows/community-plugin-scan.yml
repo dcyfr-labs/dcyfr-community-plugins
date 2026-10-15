@@ -4,7 +4,7 @@
 # If ALL checks pass and trust score >= 70, the PR is automatically merged.
 # PRs that fail any check or score 50-69 are held for human review.
 #
-# TLP:GREEN
+# TLP:CLEAR
 name: Community Plugin Security Scan
 
 on:
