@@ -4,6 +4,12 @@
 # If ALL checks pass and trust score >= 70, the PR is automatically merged.
 # PRs that fail any check or score 50-69 are held for human review.
 #
+# Every value that comes from the pull request (title, author, file paths,
+# manifest and trust-score contents) reaches a script through `env:` and is
+# read as a quoted shell variable or `process.env`. Never interpolate
+# `${{ ... }}` inside a `run:` block: the expression is pasted into the script
+# before the shell parses it, so PR-controlled text would run as code.
+#
 # TLP:CLEAR
 name: Community Plugin Security Scan
 
@@ -29,53 +35,73 @@ jobs:
       plugin_dir: ${{ steps.detect.outputs.plugin_dir }}
       trust_score: ${{ steps.trust.outputs.score }}
       plugin_id:   ${{ steps.manifest.outputs.plugin_id }}
+      needs_review: ${{ steps.author.outputs.needs_review }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Detect changed plugin directory
         id: detect
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^plugins/' | head -1)
+          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | grep '^plugins/' | head -1)
           DIR=$(echo "$CHANGED" | cut -d/ -f1-2)
           echo "plugin_dir=$DIR" >> "$GITHUB_OUTPUT"
           echo "Detected plugin directory: $DIR"
 
       - name: Validate manifest.json exists
+        env:
+          PLUGIN_DIR: ${{ steps.detect.outputs.plugin_dir }}
         run: |
-          if [ ! -f "${{ steps.detect.outputs.plugin_dir }}/.claude-plugin/manifest.json" ]; then
+          if [ ! -f "$PLUGIN_DIR/.claude-plugin/manifest.json" ]; then
             echo "ERROR: .claude-plugin/manifest.json is missing"
             exit 1
           fi
 
       - name: Validate manifest.json schema
         id: manifest
+        env:
+          PLUGIN_DIR: ${{ steps.detect.outputs.plugin_dir }}
         run: |
-          MANIFEST="${{ steps.detect.outputs.plugin_dir }}/.claude-plugin/manifest.json"
           node -e "
             const fs = require('fs');
-            const m = JSON.parse(fs.readFileSync('$MANIFEST', 'utf8'));
+            const path = require('path');
+            const m = JSON.parse(fs.readFileSync(path.join(process.env.PLUGIN_DIR, '.claude-plugin', 'manifest.json'), 'utf8'));
             const required = ['plugin_id','name','version','description','license','capabilities','permissions','entrypoint','minFrameworkVersion'];
             const missing = required.filter(k => !m[k]);
             if (missing.length) { console.error('Missing fields:', missing.join(', ')); process.exit(1); }
+            if (typeof m.plugin_id !== 'string' || /[\x00-\x1f\x7f]/.test(m.plugin_id)) {
+              console.error('plugin_id must be a string with no control characters');
+              process.exit(1);
+            }
             console.log('plugin_id=' + m.plugin_id);
-            require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'plugin_id=' + m.plugin_id + '\n');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'plugin_id=' + m.plugin_id + '\n');
           "
 
       - name: Validate trust-score.json
         id: trust
+        env:
+          PLUGIN_DIR: ${{ steps.detect.outputs.plugin_dir }}
         run: |
-          SCORE_FILE="${{ steps.detect.outputs.plugin_dir }}/trust-score.json"
+          SCORE_FILE="$PLUGIN_DIR/trust-score.json"
           if [ ! -f "$SCORE_FILE" ]; then
             echo "ERROR: trust-score.json is missing"
             exit 1
           fi
-          SCORE=$(node -e "const s=JSON.parse(require('fs').readFileSync('$SCORE_FILE','utf8')); console.log(s.overall);")
+          SCORE=$(SCORE_FILE="$SCORE_FILE" node -e "const s=JSON.parse(require('fs').readFileSync(process.env.SCORE_FILE,'utf8')); console.log(s.overall);")
+          case "$SCORE" in
+            ''|*[!0-9]*)
+              echo "ERROR: trust-score.json 'overall' must be a whole number"
+              exit 1
+              ;;
+          esac
           echo "Trust score: $SCORE"
           echo "score=$SCORE" >> "$GITHUB_OUTPUT"
 
       - name: Enforce minimum trust score (70)
+        env:
+          SCORE: ${{ steps.trust.outputs.score }}
         run: |
-          SCORE=${{ steps.trust.outputs.score }}
           if [ "$SCORE" -lt 70 ]; then
             echo "ERROR: Trust score $SCORE is below minimum threshold of 70"
             exit 1
@@ -83,42 +109,51 @@ jobs:
           echo "Trust score $SCORE meets threshold"
 
       - name: Validate SBOM present
+        env:
+          PLUGIN_DIR: ${{ steps.detect.outputs.plugin_dir }}
         run: |
-          if [ ! -f "${{ steps.detect.outputs.plugin_dir }}/sbom.json" ]; then
+          if [ ! -f "$PLUGIN_DIR/sbom.json" ]; then
             echo "ERROR: sbom.json is missing"
             exit 1
           fi
 
       - name: Validate LICENSE exists
+        env:
+          PLUGIN_DIR: ${{ steps.detect.outputs.plugin_dir }}
         run: |
-          if [ ! -f "${{ steps.detect.outputs.plugin_dir }}/LICENSE" ]; then
+          if [ ! -f "$PLUGIN_DIR/LICENSE" ]; then
             echo "ERROR: LICENSE file is missing"
             exit 1
           fi
 
       - name: Check approved licenses
+        env:
+          PLUGIN_DIR: ${{ steps.detect.outputs.plugin_dir }}
         run: |
           LICENSE=$(node -e "
-            const m = JSON.parse(require('fs').readFileSync('${{ steps.detect.outputs.plugin_dir }}/.claude-plugin/manifest.json', 'utf8'));
+            const path = require('path');
+            const m = JSON.parse(require('fs').readFileSync(path.join(process.env.PLUGIN_DIR, '.claude-plugin', 'manifest.json'), 'utf8'));
             console.log(m.license);
           ")
           APPROVED="MIT Apache-2.0 BSD-2-Clause BSD-3-Clause ISC"
-          if ! echo "$APPROVED" | grep -qw "$LICENSE"; then
+          if ! echo "$APPROVED" | grep -qw -- "$LICENSE"; then
             echo "ERROR: License '$LICENSE' is not in approved list: $APPROVED"
             exit 1
           fi
           echo "License '$LICENSE' is approved"
 
       - name: Validate plugin_id matches PR author
+        id: author
+        env:
+          PLUGIN_ID: ${{ steps.manifest.outputs.plugin_id }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
-          PLUGIN_ID="${{ steps.manifest.outputs.plugin_id }}"
-          AUTHOR="${{ github.event.pull_request.user.login }}"
           PREFIX=$(echo "$PLUGIN_ID" | cut -d/ -f1)
           # Allow dcyfr org plugins and plugins where prefix matches author
           if [ "$PREFIX" != "$AUTHOR" ] && [ "$PREFIX" != "dcyfr" ]; then
             echo "WARNING: plugin_id prefix '$PREFIX' does not match PR author '$AUTHOR'"
             echo "This PR will require manual review."
-            echo "NEEDS_REVIEW=true" >> "$GITHUB_ENV"
+            echo "needs_review=true" >> "$GITHUB_OUTPUT"
           fi
 
   # ────────────────────────────────────────────────────────────────
@@ -132,12 +167,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Scan SBOM for known vulnerabilities
+        env:
+          PLUGIN_DIR: ${{ needs.validate-plugin.outputs.plugin_dir }}
         run: |
-          SBOM="${{ needs.validate-plugin.outputs.plugin_dir }}/sbom.json"
-          echo "Scanning SBOM: $SBOM"
+          echo "Scanning SBOM: $PLUGIN_DIR/sbom.json"
           # Extract component names and check against known CVE list
           node -e "
-            const sbom = JSON.parse(require('fs').readFileSync('$SBOM', 'utf8'));
+            const path = require('path');
+            const sbom = JSON.parse(require('fs').readFileSync(path.join(process.env.PLUGIN_DIR, 'sbom.json'), 'utf8'));
             const components = sbom.components || [];
             const flagged = [];
             // Check for obviously dangerous package names (placeholder for real scanner)
@@ -164,11 +201,16 @@ jobs:
     needs: [validate-plugin, vulnerability-scan]
     runs-on: ubuntu-latest
     if: success() && github.event.pull_request.draft == false
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      REPO: ${{ github.repository }}
     steps:
       - name: Check if needs manual review
         id: review-check
+        env:
+          NEEDS_REVIEW: ${{ needs.validate-plugin.outputs.needs_review }}
         run: |
-          if [ "${{ env.NEEDS_REVIEW }}" = "true" ]; then
+          if [ "$NEEDS_REVIEW" = "true" ]; then
             echo "PR requires manual review — skipping auto-merge"
             echo "auto_merge=false" >> "$GITHUB_OUTPUT"
           else
@@ -180,27 +222,30 @@ jobs:
         if: steps.review-check.outputs.auto_merge == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PLUGIN_ID: ${{ needs.validate-plugin.outputs.plugin_id }}
         run: |
-          echo "Merging PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}"
-          gh pr merge ${{ github.event.pull_request.number }} \
-            --repo ${{ github.repository }} \
+          echo "Merging PR #${PR_NUMBER}: ${PR_TITLE}"
+          gh pr merge "$PR_NUMBER" \
+            --repo "$REPO" \
             --squash \
-            --subject "feat(community): add ${{ needs.validate-plugin.outputs.plugin_id }} [auto-merged]"
+            --subject "feat(community): add ${PLUGIN_ID} [auto-merged]"
 
       - name: Comment on PR (auto-merged)
         if: steps.review-check.outputs.auto_merge == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRUST_SCORE: ${{ needs.validate-plugin.outputs.trust_score }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --repo ${{ github.repository }} \
-            --body "## ✅ Auto-merged\n\nAll security scans passed and trust score is ${{ needs.validate-plugin.outputs.trust_score }}/100.\n\n> **⚠️ UNAUDITED**: This plugin has passed automated scans but has not been manually reviewed by the DCYFR Security Team."
+          gh pr comment "$PR_NUMBER" \
+            --repo "$REPO" \
+            --body "## ✅ Auto-merged\n\nAll security scans passed and trust score is ${TRUST_SCORE}/100.\n\n> **⚠️ UNAUDITED**: This plugin has passed automated scans but has not been manually reviewed by the DCYFR Security Team."
 
       - name: Comment on PR (manual review needed)
         if: steps.review-check.outputs.auto_merge == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --repo ${{ github.repository }} \
+          gh pr comment "$PR_NUMBER" \
+            --repo "$REPO" \
             --body "## 🔍 Manual Review Required\n\nThis PR cannot be auto-merged because the plugin_id prefix does not match your GitHub handle. A maintainer will review shortly."
