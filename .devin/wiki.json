@@ -2,11 +2,11 @@
   "repo_notes": [
     {
       "content": "Ten files and no source code: this is a registry and a set of policies, not a library. A wiki that invents an architecture here is wrong.",
-      "author": "rei-doc-specialist"
+      "author": "dcyfr-doc-specialist"
     },
     {
       "content": "The submission rules, the automated scan and the unaudited-by-security warning are the content that matters. Carry the warning through to the wiki.",
-      "author": "rei-doc-specialist"
+      "author": "dcyfr-doc-specialist"
     }
   ],
   "pages": [
